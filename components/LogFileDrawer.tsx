@@ -69,6 +69,8 @@ const LogFileDrawer = () => {
 
   const clearSelection = useDisplayDataStore((state) => state.clearSelection);
 
+  const [open, setOpen] = useState(false);
+
   const [logFilename, setLogFilename] = useState<string | undefined>(undefined);
   const [logData, setLogData] = useState<ILogData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -224,21 +226,100 @@ const LogFileDrawer = () => {
     ]
   );
 
+  const resetLocalState = () => {
+    setGpsFilename(undefined);
+    setLogFilename(undefined);
+    setLogData([]);
+    setLogKeys([]);
+    setGpsData([]);
+    setGpsKeys([]);
+  };
+
   const handleClose = useMemo<MouseEventHandler<HTMLButtonElement>>(
-    () => () => {
-      setGpsFilename(undefined);
-      setLogFilename(undefined);
-      setLogData([]);
-      setLogKeys([]);
-      setGpsData([]);
-      setGpsKeys([]);
-    },
+    () => () => resetLocalState(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
+  const handleLoadSample = async () => {
+    try {
+      const [logResponse, gpsResponse] = await Promise.all([
+        fetch("/sample-data/ArmyBase3Cylinder.MaxxECU-Log"),
+        fetch("/sample-data/ArmyBase3Cylinder-GPS.csv"),
+      ]);
+
+      if (!logResponse.ok || !gpsResponse.ok)
+        throw new Error("Failed to fetch");
+
+      const [logText, gpsText] = await Promise.all([
+        logResponse.text(),
+        gpsResponse.text(),
+      ]);
+
+      const logResult = Papa.parse<ILogData>(logText, {
+        header: true,
+        skipEmptyLines: true,
+      });
+      const gpsResult = Papa.parse<IGpsData>(gpsText, {
+        header: true,
+        skipEmptyLines: true,
+      });
+
+      const rawLog = logResult.data;
+      const rawGps = gpsResult.data;
+
+      const keysGps = Object.keys(rawGps[0]).filter(
+        (key) =>
+          ["UTC Time", "Latitude", "Longitude"].includes(key) ||
+          rawGps.some((obj) => obj[key] && Number(obj[key]) !== 0)
+      );
+      const cleanedGps = rawGps.map((obj) =>
+        Object.fromEntries(keysGps.map((key) => [key, obj[key]]))
+      ) as IGpsData[];
+
+      const keysLog = Object.keys(rawLog[0]).filter(
+        (key) =>
+          ["UTC Time", "Latitude", "Longitude"].includes(key) ||
+          rawLog.some((obj) => obj[key] && Number(obj[key]) !== 0)
+      );
+      const cleanedLog = rawLog.map((obj) =>
+        Object.fromEntries(keysLog.map((key) => [key, obj[key]]))
+      ) as ILogData[];
+
+      clearSelection();
+      clearData();
+
+      updateGpsFilename("ArmyBase3Cylinder-GPS.csv");
+      updateGpsData(cleanedGps);
+      updateGpsKeys(keysGps);
+
+      updateLogFilename("ArmyBase3Cylinder.MaxxECU-Log");
+      updateLogData(cleanedLog);
+      updateLogKeys(keysLog);
+
+      formatData();
+      scaleData();
+
+      setOpen(false);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to load sample data.",
+        variant: "error",
+        duration: 3000,
+      });
+    }
+  };
+
   return (
     <>
-      <Drawer>
+      <Drawer
+        open={open}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) resetLocalState();
+        }}
+      >
         <DrawerTrigger asChild>
           <Button
             variant="secondary"
@@ -258,6 +339,28 @@ const LogFileDrawer = () => {
             </DrawerDescription>
           </DrawerHeader>
           <DrawerBody>
+            <div className="mb-4">
+              <Button
+                variant="secondary"
+                className="w-full font-sans text-sm cursor-pointer"
+                onClick={handleLoadSample}
+              >
+                Load sample data
+              </Button>
+              <p className="mt-1.5 text-xs text-slate-500 font-sans">
+                Army Base 3-cylinder MaxxECU session with GPS data
+              </p>
+            </div>
+            <div className="relative mb-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-200 dark:border-slate-800" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white dark:bg-[#090E1A] px-2 text-slate-500 font-sans">
+                  or upload your own files
+                </span>
+              </div>
+            </div>
             {!isOnlyGpsFile && (
               <>
                 <FileInput

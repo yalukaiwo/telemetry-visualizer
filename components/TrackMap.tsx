@@ -14,6 +14,7 @@ import {
 import { isNumber } from "@/lib/utils";
 import L, { LatLng } from "leaflet";
 import useDisplayDataStore from "@/lib/store/DisplayDataStore";
+import { useTheme } from "next-themes";
 
 export function findClosestPoint(
   clickedLatLng: LatLng,
@@ -36,6 +37,7 @@ export function findClosestPoint(
 }
 
 const TrackMap = () => {
+  const { resolvedTheme } = useTheme();
   const gpsData = useLogGpsStore((state) => state.gpsData);
 
   const gpsKeys = useLogGpsStore((state) => state.gpsKeys).filter(
@@ -177,7 +179,9 @@ const TrackMap = () => {
           >
             <TileLayer
               url={
-                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                resolvedTheme === "dark"
+                  ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               }
             />
             {segments}
