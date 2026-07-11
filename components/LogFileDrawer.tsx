@@ -25,6 +25,7 @@ import {
   Toaster,
 } from "./common";
 import useLogGpsStore, { ILogData, IGpsData } from "@/lib/store/LogGpsStore";
+import { addSpeedToGpsData, SPEED_KEY } from "@/lib/gpsSpeed";
 import Papa from "papaparse";
 import FileInput from "./FileInput";
 import useDisplayDataStore from "@/lib/store/DisplayDataStore";
@@ -163,6 +164,9 @@ const LogFileDrawer = () => {
           Object.fromEntries(keysGps.map((key) => [key, obj[key]]))
         ) as IGpsData[];
 
+        cleanedGps = addSpeedToGpsData(cleanedGps);
+        keysGps.push(SPEED_KEY);
+
         updateGpsData(cleanedGps as IGpsData[]);
         updateGpsKeys(keysGps);
       }
@@ -273,9 +277,12 @@ const LogFileDrawer = () => {
           ["UTC Time", "Latitude", "Longitude"].includes(key) ||
           rawGps.some((obj) => obj[key] && Number(obj[key]) !== 0)
       );
-      const cleanedGps = rawGps.map((obj) =>
-        Object.fromEntries(keysGps.map((key) => [key, obj[key]]))
-      ) as IGpsData[];
+      const cleanedGps = addSpeedToGpsData(
+        rawGps.map((obj) =>
+          Object.fromEntries(keysGps.map((key) => [key, obj[key]]))
+        ) as IGpsData[]
+      );
+      keysGps.push(SPEED_KEY);
 
       const keysLog = Object.keys(rawLog[0]).filter(
         (key) =>
